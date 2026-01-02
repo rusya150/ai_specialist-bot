@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+
 import { useTelegram } from '../hooks/useTelegram';
 import { ShieldAlert, Trash2, Key, RefreshCw } from 'lucide-react';
 
