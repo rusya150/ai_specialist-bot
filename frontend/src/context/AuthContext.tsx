@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useTelegram } from '../hooks/useTelegram';
+import { API_URL } from '../config';
 
 interface User {
     id: number;
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Mock initData if missing (dev mode in browser)
             const initData = tg.initData || "query_id=mock&user=%7B%22id%22%3A750869199%2C%22first_name%22%3A%22DevAdmin%22%7D&auth_date=1&hash=mock";
 
-            const response = await fetch('http://localhost:8000/api/v1/auth/telegram', {
+            const response = await fetch(`${API_URL}/api/v1/auth/telegram`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

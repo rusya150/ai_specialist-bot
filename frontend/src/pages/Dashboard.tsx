@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import {
     GraduationCap,
@@ -44,8 +45,7 @@ export function Dashboard() {
     useEffect(() => {
         const fetchItems = async () => {
             try {
-                const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-                const response = await fetch(`${apiUrl}/api/v1/items`);
+                const response = await fetch(`${API_URL}/api/v1/items`);
                 if (response.ok) {
                     const data = await response.json();
                     const mappedItems = data.map((item: any) => ({

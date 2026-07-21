@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Key, Lock, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { API_URL } from '../config';
 
 export function Activation() {
     const [code, setCode] = useState('');
@@ -25,7 +26,7 @@ export function Activation() {
         setMessage('');
 
         try {
-            const response = await fetch('http://localhost:8000/api/v1/auth/activate', { // Adjust URL if needed or use relative if proxy
+            const response = await fetch(`${API_URL}/api/v1/auth/activate`, { // Adjust URL if needed or use relative if proxy
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
