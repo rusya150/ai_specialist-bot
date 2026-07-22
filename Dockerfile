@@ -17,7 +17,9 @@ COPY backend/ ./backend/
 ENV PYTHONPATH=/app/backend
 WORKDIR /app/backend
 
-ENV PORT=7860
-EXPOSE 7860
+# Порт бере з $PORT, який підставляє платформа (Koyeb=8000, Cloud Run=8080).
+# Дефолт лише для локального запуску.
+ENV PORT=8000
+EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

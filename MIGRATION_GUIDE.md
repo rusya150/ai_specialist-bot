@@ -1,62 +1,72 @@
 # Міграція AI Specialist на безкоштовний хостинг
 
-Заміна Render.com. Стек: **Hugging Face Spaces** (бекенд) + **Neon** (база) + **Vercel** (фронтенд) + **cron-job.org** (keep-warm).
+Заміна Render.com. Стек: **Koyeb** (бекенд) + **Neon** (база) + **Vercel** (фронтенд) + **cron-job.org** (keep-warm).
 
 ---
 
-## Чому саме так
+## Чому Koyeb
 
-Безкоштовного контейнерного хостингу, який ніколи не спить, у 2026 фактично немає:
+Безкоштовного контейнерного хостингу, який взагалі не засинає, у 2026 практично немає.
+Різниця в тому, наскільки боляче це відчувається:
 
-| Сервіс | Засинання |
-|---|---|
-| Render free | 15 хв простою |
-| Koyeb free | так, засинає |
-| Fly.io | auto-stop машин + картка |
-| Railway | безкоштовного тарифу немає |
-| **HF Spaces (CPU basic)** | **48 год простою** |
+| Платформа | Простій до сну | Пробудження | Картка |
+|---|---|---|---|
+| Render free | 15 хв | 30–50 с | ні |
+| **Koyeb free (Hobby)** | **1 год** | **200 мс** (light) / 1–5 с (deep) | **ні** |
+| Google Cloud Run | scale-to-zero | ~1–3 с | **так** |
+| Fly.io | auto-stop | ~1 с | **так** |
+| HF Spaces | — | — | **Docker SDK платний** |
 
-Тому стратегія — хост із найбільшим вікном простою **плюс** зовнішній пінгер. Якщо cron
-смикає `/health` кожні 30 хв, лічильник простою ніколи не досягає 48 год і Space не засинає.
+Koyeb дає годину простою замість 15 хвилин, а прокидається за 200 мс замість 50 секунд.
+Плюс зовнішній пінгер кожні 30 хв — і сервіс не засинає взагалі.
+
+**Hugging Face відпав:** з 2025 HF вимагає платний план для Spaces, що виконують код
+(Gradio або Docker). Безкоштовними лишились тільки Static Spaces. ZeroGPU працює лише
+з Gradio SDK і дає 5 хвилин GPU на добу — для постійного API не підходить.
+
+**Ліміти free-інстансу Koyeb:** 512 MB RAM, 0.1 vCPU, 2 GB SSD, один web service,
+регіони Frankfurt або Washington D.C., деплой лише з git. Томів немає — тому база
+обов'язково зовнішня.
 
 ---
 
 ## Крок 0. Прибрати витік ключів (робити ПЕРШИМ)
 
-У git-історії Space лежить `backend/.env` із живими ключами (Telegram / Groq / Gemini),
-плюс `ai_specialist.db`. Зараз Space приватний, тож назовні вони не витекли, але
-Telegram Mini App вимагає **публічного** Space — у момент публікації ключі стануть доступні.
+У git-історії Space `Nick12311/ai-specialist-bot` лежить `backend/.env` із живими
+ключами (Telegram / Groq / Gemini) і `ai_specialist.db`. Space приватний, тож назовні
+вони не витекли, а в публічну GitHub-історію не потрапляли ніколи.
 
-1. Видалити Space `Nick12311/ai-specialist-bot` цілком і створити наново.
-   Це просто ціль деплою — історія комітів там не потрібна, а `git filter-repo` тут зайвий.
-2. Ротувати HF write-токен: https://huggingface.co/settings/tokens
-   (старий був вшитий у URL remote відкритим текстом).
-3. Ключі більше ніколи не класти у файл — лише через Secrets (крок 2).
+Оскільки HF більше не використовується — просто **видалити цей Space** і
+**ротувати HF-токен** (https://huggingface.co/settings/tokens): старий був вшитий
+у URL remote відкритим текстом.
 
-Публічний GitHub-репозиторій перевірено — `.env` і `*.db` у його історію не потрапляли.
+Локальний каталог `hf_clean/` більше не потрібен, він уже в `.gitignore`.
 
 ---
 
 ## Крок 1. База даних (Neon)
 
-1. Реєстрація на https://neon.tech, створити проект.
+1. https://neon.tech → зареєструватись, створити проект.
 2. Скопіювати **Connection String**:
    `postgresql://user:pass@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require`
 
-Neon обов'язковий: диск HF Spaces **ефемерний**. На SQLite усі користувачі та коди
-активації зникатимуть при кожному рестарті контейнера.
+Neon обов'язковий: на free-інстансі Koyeb немає томів, диск ефемерний. На SQLite усі
+користувачі й коди активації зникатимуть при кожному рестарті.
+
+Регіон Neon бажано брати європейський — тоді він поруч із Frankfurt.
 
 ---
 
-## Крок 2. Бекенд (Hugging Face Spaces)
+## Крок 2. Бекенд (Koyeb)
 
-Створити новий Space: **SDK = Docker**, **Hardware = CPU basic (free)**.
+1. https://www.koyeb.com → Sign up через GitHub (картка не потрібна).
+2. Create Web Service → GitHub → репозиторій `ai_specialist-bot`, гілка `hf_deploy`.
+3. Builder: **Dockerfile** (визначиться автоматично, файл у корені).
+4. Instance: **Free**. Region: **Frankfurt**.
+5. Port: **8000** (`Dockerfile` слухає `$PORT`, Koyeb підставляє 8000).
+6. Health check path: `/health`.
 
-> ⚠️ Не обирати ZeroGPU. Це звичайний CRUD API, GPU йому не потрібен, а ZeroGPU
-> вимагає, щоб застосунок мав форму Gradio-додатку — саме через це попередній
-> деплой обріс фіктивним `@spaces.GPU` і піном `huggingface-hub<0.25`.
-
-Settings → **Variables and secrets**:
+Environment variables:
 
 | Змінна | Значення |
 |---|---|
@@ -66,25 +76,16 @@ Settings → **Variables and secrets**:
 | `GROQ_API_KEY` | опційно (чат-ендпоінт не підключений) |
 | `GEMINI_API_KEY` | опційно |
 
-Пуш:
-
-```bash
-git remote set-url hf https://huggingface.co/spaces/<user>/<space>
-git push hf hf_deploy:main
-```
-
-Токен вводити в промпті при запиті, **не** вшивати в URL.
-
 Таблиці створяться і наповняться автоматично при першому старті.
 
 ---
 
 ## Крок 3. Фронтенд (Vercel)
 
-1. https://vercel.com → Add New → Project → імпорт GitHub-репозиторію.
+1. https://vercel.com → Add New → Project → імпорт репозиторію.
 2. Root Directory: `frontend`.
-3. Environment Variable: `VITE_API_URL` = `https://<user>-<space>.hf.space` (без слеша в кінці).
-4. Deploy, потім дописати отриманий домен у `CORS_ORIGINS` на HF.
+3. Environment Variable: `VITE_API_URL` = `https://<app>-<org>.koyeb.app` (без слеша в кінці).
+4. Deploy, потім дописати отриманий домен у `CORS_ORIGINS` на Koyeb і передеплоїти бекенд.
 
 Статика на CDN не засинає взагалі.
 
@@ -94,21 +95,39 @@ git push hf hf_deploy:main
 
 https://cron-job.org (безкоштовно) → новий job:
 
-* URL: `https://<user>-<space>.hf.space/health`
+* URL: `https://<app>-<org>.koyeb.app/health`
 * Інтервал: кожні 30 хвилин
 
-Ендпоінт `/health` уже реалізований у `backend/app/main.py`.
+Вікно простою в Koyeb — 1 година, тож пінг раз на 30 хв тримає сервіс живим постійно.
+Ендпоінт `/health` реалізований у `backend/app/main.py`.
+
+---
+
+## Крок 5. Telegram
+
+BotFather → `/newapp` → URL вказати домен з Vercel (не Koyeb — це адреса інтерфейсу).
 
 ---
 
 ## Що вже виправлено в коді
 
 * `Dockerfile` — був зламаний: `uvicorn backend.app.main:app` давав циклічний імпорт
-  через кореневий `app.py`. Тепер `PYTHONPATH=/app/backend` і `uvicorn app.main:app`.
-* `app.py` — видалено (лишок Gradio-SDK, саме він і спричиняв конфлікт імен).
-* `README.md` — frontmatter переведено з `sdk: gradio` на `sdk: docker` + `app_port: 7860`.
+  через кореневий `app.py`. Тепер `PYTHONPATH=/app/backend` + `uvicorn app.main:app`,
+  порт береться з `$PORT` (працює на Koyeb, Cloud Run, Fly без змін).
+* `app.py` — видалено (лишок Gradio-SDK, він і спричиняв конфлікт імен).
+* `README.md` — прибрано HF-frontmatter.
 * `config.py` — `GROQ_API_KEY` / `GEMINI_API_KEY` більше не обов'язкові.
   `TELEGRAM_BOT_TOKEN` лишається обов'язковим навмисно: порожній токен зробив би
   HMAC-перевірку `initData` обчислюваною будь-ким, тобто обхід авторизації.
 * `.dockerignore` — доданий, щоб у build-контекст не лізли `node_modules`, `.env`, `*.db`.
-* `.gitignore` — додано `hf_clean/` (каталог зі старою скомпрометованою git-історією).
+* `.gitignore` — додано `hf_clean/`.
+
+---
+
+## Якщо Koyeb не підійде
+
+* **Google Cloud Run** — 2 млн запитів/міс, холодний старт ~1–3 с, але потрібна картка.
+  Той самий `Dockerfile` заводиться без змін (Cloud Run підставляє `PORT=8080`).
+* **Fly.io** — швидке пробудження, теж потрібна картка.
+* **Oracle Cloud Always Free** — ARM VM 4 vCPU / 24 GB, ніколи не спить, але це вже
+  адміністрування VM (nginx, systemd, SSL) і картка для верифікації.

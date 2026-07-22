@@ -1,12 +1,3 @@
----
-title: Ai Specialist Bot
-emoji: 😻
-colorFrom: red
-colorTo: green
-sdk: docker
-app_port: 7860
-pinned: false
----
 # AI Specialist - Educational Hub (Telegram Mini App)
 
 Цей проект є освітнім хабом для AI спеціалістів, реалізованим як Telegram Mini App.
