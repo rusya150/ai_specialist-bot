@@ -10,3 +10,8 @@ venv/
 node_modules/
 dist/
 .DS_Store
+
+# Старий деплой-каталог: має власний git, у чию історію потрапили
+# backend/.env та ai_specialist.db. Не пускати у публічний репозиторій.
+hf_clean/
+

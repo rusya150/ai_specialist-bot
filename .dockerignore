@@ -1,0 +1,14 @@
+frontend/
+hf_clean/
+.venv/
+.git/
+**/__pycache__/
+**/*.pyc
+**/.env
+**/*.db
+*.txt
+!backend/requirements.txt
+memory/
+.agent/
+.agents/
+.gemini/

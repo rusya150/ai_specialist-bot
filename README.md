@@ -3,9 +3,8 @@ title: Ai Specialist Bot
 emoji: 😻
 colorFrom: red
 colorTo: green
-sdk: gradio
-sdk_version: 5.0.0
-app_file: app.py
+sdk: docker
+app_port: 7860
 pinned: false
 ---
 # AI Specialist - Educational Hub (Telegram Mini App)
